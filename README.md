@@ -66,10 +66,40 @@ $$P_{GIP} = E \cdot \left( \frac{\Delta V}{V} \right)$$
 
 ---
 
-## 📈 Results & Biological Interpretation
+## 📈 Results & Biological Summary
 
 * **Robust Sensor Calibration:** The `cdist`-based metrology pipeline successfully generated a highly correlated calibration curve, proving that automated image analysis can convert standard PDMS micro-chambers into precise mechanobiological sensors.
 * **GIP Kinetics:** Time-lapse analysis revealed a distinct two-phase growth profile. Initially, bacteria grow freely with near-zero pressure. Upon reaching confluency, GIP spikes rapidly, demonstrating the immediate mechanical load exerted on the confining environment.
 * **Adaptation to Confinement:** The ability of the bacterial population to sustain and increase pressure against the confining walls highlights a significant mechanobiological adaptation, likely requiring transcriptional changes to resist metabolite-induced turgor pressure build-up.
 
 ---
+
+## 📂 Project Structure
+
+* **`/notebooks`**: Jupyter notebooks for Calibration Modeling and GIP Analysis.
+* **`/data/raw`**: Standardized directory for `.tif` image sequences (Calibration masks and Growth timelapse masks).
+* **`/data/results`**: Output directory for calibration CSVs and temporal pressure arrays.
+* **`/assets`**: Contains the generated calibration curve and reassembling chamber (x-axis & y-axis).
+
+---
+
+## ⚙️ Setup & Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/Herbert-Wong25/Automated-Quantification-of-Bacterial-Growth-Induced-Pressure.git
+cd Automated-Quantification-of-Bacterial-Growth-Induced-Pressure
+
+# Create and activate environment
+conda create -n mechanobiology python=3.10
+conda activate mechanobiology
+
+# Install requirements
+pip install numpy pandas scipy scikit-image matplotlib natsort
+
+```
+
+## ✉️ Contact
+
+For questions regarding the bio-image informatics pipeline or mechanobiological models, please contact **Siu Ho (Herbert) Wong** at [herbert.wong150@gmail.com].
+
