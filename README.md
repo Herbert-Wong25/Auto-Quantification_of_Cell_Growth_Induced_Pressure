@@ -16,3 +16,23 @@ This project overcomes this limitation by utilizing a PDMS microfluidic chamber 
 * **Data Processing & Visualization:** `pandas`, `numpy`, `matplotlib`, `natsort`
 
 ---
+
+## 🚀 The Pipeline & Script Evolution
+
+### Part 1: Pressure-to-Deformation Calibration
+
+Before biological analysis, the microfluidic device must be calibrated using known pneumatic pressures (0–2000 mbar) to establish a mathematical baseline.
+
+* **Notebook:** `01_Calibration_Model.ipynb`
+* **Methodology:** Implements robust pairwise distance calculations (`cdist`) between non-parallel segmented wall boundaries to compute average separation with high sub-pixel precision.
+* **Output:** Generates the empirical calibration model linking applied pressure to structural displacement.
+
+### Part 2: Growth-Induced Pressure (GIP) Analysis
+
+Applies the calibration model to 30-minute interval timelapse imagery of *E. coli* proliferation.
+
+* **Notebook:** `02_Growth_Pressure_Analysis.ipynb`
+* **Methodology:** Implements spatial masking (cropping to the central uniform region) and morphological filtering to track wall separation over time dynamically.
+* **Output:** Time-resolved quantification of GIP, mapping the transition from free growth to mechanical confinement.
+
+---
