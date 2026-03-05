@@ -1,0 +1,23 @@
+# Auto-Quantification of Bacterial Growth-Induced Pressure — Python Dependencies
+# Install with: pip install -r requirements.txt
+#
+# Tested on Python 3.10
+
+# Image I/O (Parts 1 & 2)
+Pillow
+scikit-image
+
+# Morphological operations (Parts 1 & 2)
+scipy
+
+# Numerical computing (Parts 1 & 2)
+numpy
+
+# Data manipulation & export (Parts 1 & 2)
+pandas
+
+# Robust filename sorting (Parts 1 & 2)
+natsort
+
+# Visualisation (Parts 1 & 2)
+matplotlib
