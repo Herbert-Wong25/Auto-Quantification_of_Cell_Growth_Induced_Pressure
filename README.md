@@ -1,105 +1,115 @@
-# Automated Quantification of Bacterial Growth-Induced Pressure
+# Auto-Quantification of Bacterial Growth-Induced Pressure
 
-This repository contains a Python-based bio-image informatics pipeline designed to characterize the mechanics of bacterial growth under physical confinement. By automating the detection of microfluidic wall deformations, this tool quantifies Growth-Induced Pressure (GIP) in millibars (mbar), bridging the gap between high-resolution microscopy and quantitative mechanobiology.
+A Python bio-image informatics pipeline that converts fluorescence microscopy of PDMS microfluidic chambers into time-resolved, absolute mechanical pressure measurements — quantifying the Growth-Induced Pressure (GIP) exerted by confined *E. coli* populations in **kPa**.
+
+---
 
 ## 🔬 Scientific Context
 
-When bacteria such as *E. coli* proliferate within confined spaces (e.g., host tissues, medical implants, or microfluidic chambers), they exert physical forces on their surroundings. Measuring this force is technically challenging.
+When bacteria such as *E. coli* proliferate within confined spaces — host tissues, medical implants, or microfluidic chambers — they exert measurable physical forces on their surroundings. Quantifying this force *in situ* is technically challenging.
 
-This project overcomes this limitation by utilizing a PDMS microfluidic chamber as a **physical force sensor**. By calculating the structural deformation of the chamber walls as the bacterial colony reaches confluency, we can map pixel-level structural changes to absolute physical pressure (GIP).
+This pipeline overcomes this by using a PDMS microfluidic chamber as a **physical force sensor**. Fluorescently labelled chamber walls are segmented in Fiji and then analysed in Python: wall-to-wall separation is tracked over time, calibrated against known pneumatic pressures, and converted into absolute GIP values via an effective Young's modulus model — replicating the analysis of Figure 1D of Le Blanc *et al.* (2024).
+
+---
 
 ## 🛠 Tech Stack & Dependencies
 
-* **Bio-Image Informatics:** Python 3.10+
-* **Advanced Metrology:** `scipy.spatial.distance` (`cdist`)
-* **Computer Vision / Segmentation:** `scikit-image` (`skimage.measure`, `regionprops`)
-* **Data Processing & Visualization:** `pandas`, `numpy`, `matplotlib`, `natsort`
+| Domain | Tool |
+|---|---|
+| Image I/O & segmentation | `scikit-image`, `Pillow` |
+| Robust wall metrology | Linear resampling + one-to-one distance mapping |
+| Morphological refinement | `scipy.ndimage` (`binary_closing`, `binary_dilation`) |
+| Data processing & visualisation | `pandas`, `numpy`, `matplotlib`, `natsort` |
 
 ---
 
-## 🚀 The Pipeline & Script Evolution
+## 🚀 Pipeline Overview
 
-### Part 1: Pressure-to-Deformation Calibration
+### Part 1: Pressure-to-Deformation Calibration (`01_Calibration_Model.ipynb`)
 
-Before biological analysis, the microfluidic device must be calibrated using known pneumatic pressures (0–2000 mbar) to establish a mathematical baseline.
+Establishes the empirical relationship between applied pneumatic pressure (0–2000 mbar, 8 levels) and chamber-wall separation (µm) across 4 calibration datasets.
 
-* **Notebook:** `01_Calibration_Model.ipynb`
-* **Methodology:** Implements robust pairwise distance calculations (`cdist`) between non-parallel segmented wall boundaries to compute average separation with high sub-pixel precision.
-* **Output:** Generates the empirical calibration model linking applied pressure to structural displacement.
+**Method:**
+- Segmented masks exported from Fiji are pre-processed with morphological operations (`binary_closing` + `binary_dilation`, disk kernel radius = 3 px) to fill gaps and reduce noise in detected wall boundaries.
+- Wall pixel coordinates are **linearly resampled** to equal point counts on both walls, enabling memory-efficient one-to-one distance mapping — avoiding the O(n²) pairwise distance matrix of a full `cdist` approach.
+- Deformation (µm) and area change (%) are computed relative to the 0 mbar baseline and exported to CSV.
 
-### Part 2: Growth-Induced Pressure (GIP) Analysis
-
-Applies the calibration model to 30-minute interval timelapse imagery of *E. coli* proliferation.
-
-* **Notebook:** `02_Growth_Pressure_Analysis.ipynb`
-* **Methodology:** Implements spatial masking (cropping to the central uniform region) and morphological filtering to track wall separation over time dynamically.
-* **Output:** Time-resolved quantification of GIP, mapping the transition from free growth to mechanical confinement.
+**Output:** Calibration curve (deformation vs pressure) + wall-resampling verification plots for all 4 datasets.
 
 ---
 
-## 📊 Key Quantitative Metrics
+### Part 2: Growth-Induced Pressure Analysis (`02_Growth_Pressure_Analysis.ipynb`)
 
-The analytical pipeline translates measured pixel deformations into absolute mechanical units (mbar) by integrating empirical calibration data with a three-dimensional mechanical model of the micro-chamber.
+Applies the same wall-tracking pipeline to time-lapse chamber images of *E. coli* growth (30-min frame interval, 5 chambers), quantifying GIP over ~20 hours.
 
-### 1. Young's Modulus of the Chamber ($E$)
+**Method:**
+- **X-axis analysis:** Images are cropped to the central region (y = [100, 300] px) to focus on horizontal wall separation; size filtering (≥ 700 px²) suppresses small segmentation artefacts.
+- **Y-axis analysis (Chamber-1):** Crops the left region (x = [100, 200] px) to isolate the top and bottom walls, independently measuring vertical separation. This verifies the **isotropic deformation assumption**: αy = ΔLy/ΔLx = **0.98**, confirming near-equal deformation in both lateral directions.
+- **GIP calculation:** Horizontal strain is multiplied directly by the effective Young's modulus. Because the proportionality between 1D and 3D strain is encoded in Eeff itself, no separate 3D conversion is required (Report §3.3):
 
-To quantify the Growth-Induced Pressure (GIP), the pipeline first determines the absolute Young's Modulus of the microfluidic device. This is achieved by converting the effective horizontal modulus ($E_{eff}$), derived from pneumatic calibration, into a 3D structural value (Equation 2):
+$$\text{GIP} = E_{\text{eff}} \cdot \frac{\Delta L_x}{L_{x,0}}$$
 
-$$E = \alpha_{NL} \cdot \frac{E^{eff}}{\frac{1}{2} + \frac{1}{2} \cdot \alpha_{y} \cdot \frac{L_{y}}{L_{z}} + \alpha_{z} \cdot \frac{L_{x}}{L_{z}}}$$
-
-* **$E_{eff}$**: Effective horizontal modulus calculated from the calibration strain data.
-* **$L_{x}, L_{y}, L_{z}$**: Initial micro-chamber dimensions.
-* **$\alpha_{y}, \alpha_{z}$**: Proportionality constants for strain ($\alpha_{y} = 0.98, \alpha_{z} = 1$).
-* **$\alpha_{NL}$**: Non-linear correction coefficient (0.92).
-
-### 2. Volumetric Strain Transformation
-
-During the growth phase, the pipeline measures the horizontal strain ($\Delta L_x / L_x$) via wall detection. This horizontal displacement is then mapped to the total volumetric strain ($\Delta V / V$) of the chamber (Equation 3):
-
-$$\frac{\Delta L_{x}}{L_{x}} \approx \frac{\frac{\Delta V}{V}}{\frac{1}{2} + \frac{1}{2} \cdot \alpha_{y} \cdot \frac{L_{y}}{L_{x}} + \alpha_{z} \cdot \frac{L_{x}}{L_{z}}}$$
-
-### 3. Growth-Induced Pressure (GIP) Calculation
-
-The final GIP (in mbar) is calculated as the product of the derived volumetric strain and the calibrated Young’s Modulus:
-
-$$P_{GIP} = E \cdot \left( \frac{\Delta V}{V} \right)$$
+**Output:** GIP vs Time plots for all 5 chambers; CSV export.
 
 ---
 
-## 📈 Results & Biological Summary
+## 📊 Key Quantitative Results
 
-* **Robust Sensor Calibration:** The `cdist`-based metrology pipeline successfully generated a highly correlated calibration curve, proving that automated image analysis can convert standard PDMS micro-chambers into precise mechanobiological sensors.
-* **GIP Kinetics:** Time-lapse analysis revealed a distinct two-phase growth profile. Initially, bacteria grow freely with near-zero pressure. Upon reaching confluency, GIP spikes rapidly, demonstrating the immediate mechanical load exerted on the confining environment.
-* **Adaptation to Confinement:** The ability of the bacterial population to sustain and increase pressure against the confining walls highlights a significant mechanobiological adaptation, likely requiring transcriptional changes to resist metabolite-induced turgor pressure build-up.
+### Effective Young's Modulus
+
+Calibration strain data (σ = Eeff · ΔLx/Lx) yield a linear fit with R² = 0.9887:
+
+$$E_{\text{eff}} = 4.337 \text{ MPa}$$
+
+### Full 3D Young's Modulus (for reference)
+
+Using chamber dimensions (Lx = 31.21 µm, Ly = 19.12 µm, Lz = 2.3 µm) and deformation ratios (αy = 0.98, αz = 1, αNL = 0.92):
+
+$$E = \alpha_{NL} \cdot \frac{E_{\text{eff}}}{\dfrac{1}{2} + \dfrac{1}{2} \cdot \alpha_{y} \cdot \dfrac{L_{y}}{L_{x}} + \alpha_{z} \cdot \dfrac{L_{x}}{L_{z}}} = 268.34 \text{ kPa}$$
+
+*(Comparable to 282.6 kPa reported in Le Blanc et al. Supp. Fig. 1G.)*
+
+### GIP Kinetics — Biological Interpretation
+
+- **Two-phase growth profile:** Chambers 1, 4, and 5 show near-zero GIP for ~5 hours (free growth phase), followed by a rapid pressure increase. Chambers 2 and 3 show a shorter lag (~3 h) before rising.
+- **Plateau:** All five chambers converge to a maximum GIP of approximately **250–300 kPa**, suggesting the colony actively regulates growth rate as pressure approaches levels that compromise bacterial membrane integrity.
+- **Reproducibility:** Final GIP values are within ~50 kPa across all five independent chambers, confirming the robustness of the measurement pipeline and the consistency of the mechanobiological response.
 
 ---
 
 ## 📂 Project Structure
 
-* **`/notebooks`**: Jupyter notebooks for Calibration Modeling and GIP Analysis.
-* **`/data/raw`**: Standardized directory for `.tif` image sequences (Calibration masks and Growth timelapse masks).
-* **`/data/results`**: Output directory for calibration CSVs and temporal pressure arrays.
-* **`/assets`**: Contains the generated calibration curve and reassembling chamber (x-axis & y-axis).
+```
+.
+├── notebooks/
+│   ├── 01_Calibration_Model.ipynb          # Pressure calibration pipeline
+│   └── 02_Growth_Pressure_Analysis.ipynb   # GIP quantification & plots
+├── data/
+│   ├── processed/masks/
+│   │   ├── calibration/   # Cal-1 to Cal-4 segmented masks (8 frames each)
+│   │   └── chambers/      # Chamber-1 to Chamber-5 segmented masks
+│   └── results/           # Output CSVs and GIP plots
+└── requirements.txt
+```
 
 ---
 
 ## ⚙️ Setup & Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/Herbert-Wong25/Automated-Quantification-of-Bacterial-Growth-Induced-Pressure.git
-cd Automated-Quantification-of-Bacterial-Growth-Induced-Pressure
+git clone https://github.com/Herbert-Wong25/Auto-Quantification_of_Cell_Growth_Induced_Pressure.git
+cd Auto-Quantification_of_Cell_Growth_Induced_Pressure
 
-# Create and activate environment
-conda create -n mechanobiology python=3.10
-conda activate mechanobiology
+conda create -n gip_analysis python=3.10
+conda activate gip_analysis
 
-# Install requirements
-pip install numpy pandas scipy scikit-image matplotlib natsort
-
+pip install numpy pandas scipy scikit-image Pillow matplotlib natsort
 ```
+
+Then run the notebooks in order: `01_Calibration_Model.ipynb` → `02_Growth_Pressure_Analysis.ipynb`.
+
+---
 
 ## ✉️ Contact
 
-For questions regarding the bio-image informatics pipeline or mechanobiological models, please contact **Siu Ho (Herbert) Wong** at [herbert.wong150@gmail.com].
-
+For questions regarding the bio-image informatics pipeline or mechanobiological models, please contact **(Herbert) Siu-Ho Wong** at [herbert.wong150@gmail.com].
